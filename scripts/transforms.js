@@ -2,63 +2,62 @@ import { Matrix, Vector } from "./matrix.js";
 
 // create a 4x4 matrix to the perspective projection / view matrix
 function mat4x4Perspective(prp, srp, vup, clip) {
-    let n = (prp - srp).normalize();
-    let u = (vup.cross(n)).normalize();
-    let v = n.cross(u);
+  let n = (prp - srp).normalize();
+  let u = vup.cross(n).normalize();
+  let v = n.cross(u);
 
+  let t = new Matrix(4, 4);
+  t.values = [
+    [1, 0, 0, srp[0]],
+    [0, 1, 0, srp[1]],
+    [0, 0, 1, srp[2]],
+    [0, 0, 0, 1],
+  ];
 
-    let t = new Matrix(4, 4);
-    t.values = [
-        [1, 0, 0, srp[0]],
-        [0, 1, 0, srp[1]],
-        [0, 0, 1, srp[2]],
-        [0, 0, 0, 1],
-    ];
+  let r = new Matrix(4, 4);
+  r.values = [
+    [u[0], u[1], u[2], 0],
+    [v[0], v[1], v[2], 0],
+    [n[0], n[1], n[2], 0],
+    [0, 0, 0, 1],
+  ];
 
-    let r = new Matrix(4, 4);
-    r.values = [
-        [u[0], u[1], u[2], 0],
-        [v[0], v[1], v[2], 0],
-        [n[0], n[1], n[2], 0],
-        [0, 0, 0, 1],
-    ];
+  let cw = new Vector(3);
+  cw.values = [(clip[0] + clip[1]) / 2, (clip[2] + clip[3]) / 2, -1 * clip[4]];
+  shx = -cw[0] / cw[2];
+  shy = -cw[1] / cw[3];
 
-    let cw = new Vector(3);
-    cw.values = [(clip[0] + clip[1]) / 2, (clip[2] + clip[3]) / 2, -1 * clip[4]];
-    shx = -cw[0] / cw[2];
-    shy = -cw[1] / cw[3];
+  let s = new Matrix(4, 4);
+  s.values = [
+    [1, 0, shx, 0],
+    [0, 1, shy, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1],
+  ];
 
-    let s = new Matrix(4, 4);
-    s. values = [
-        [1, 0, shx, 0],
-        [0, 1, shy, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1],
-    ];
+  let p = new Matrix(4, 4);
+  p.values = [
+    [((2 * clip[4]) / (clip[1] - clip[0])) * clip[5], 0, 0, 0],
+    [0, ((2 * clip[4]) / (clip[2] - clip[3])) * clip[5]],
+    [0, 0, 1 / clip[5], 0],
+    [0, 0, 0, 1],
+  ];
 
-    let p = new Matrix(4, 4);
-    p.values = [
-        [(2 * clip[4]) / ((clip[1] - clip[0])) * clip[5], 0, 0, 0],
-        [0, (2 * clip[4]) / ((clip[2] - clip[3])) * clip[5]],
-        [0, 0, 1 / clip[5], 0],
-        [0, 0, 0, 1],
-    ];
+  let transform = Matrix.multiply([t, r, cw, p]);
 
-    let transform = Matrix.multiply([t, r, cw, p])
-
-    return transform
+  return transform;
 }
 
 // create a 4x4 matrix to project a perspective image on the z=-1 plane
 function mat4x4MPer() {
   let mper = new Matrix(4, 4);
-  
-    mper.values = [
-        [1, 0, 0, 0],
-        [0, 1, 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, -1, 0],
-    ];
+
+  mper.values = [
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, -1, 0],
+  ];
 
   return mper;
 }
@@ -67,6 +66,13 @@ function mat4x4MPer() {
 function mat4x4Viewport(width, height) {
   let viewport = new Matrix(4, 4);
   // viewport.values = ...;
+  viewport.values = [
+    [width / 2, 0, 0, width / 2],
+    [0, height / 2, 0, height / 2],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1],
+  ];
+
   return viewport;
 }
 
