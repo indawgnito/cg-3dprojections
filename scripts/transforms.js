@@ -44,7 +44,7 @@ function mat4x4Perspective(prp, srp, vup, clip) {
         [0, 0, 0, 1],
     ];
 
-    let transform = Matrix.multiply([p, cw, r, t])
+    let transform = Matrix.multiply([t, r, cw, p])
 
     return transform
 }
