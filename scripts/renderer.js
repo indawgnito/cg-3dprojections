@@ -62,6 +62,11 @@ class Renderer {
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+        
+        for (let i = 0; i < this.scene.models.length; i++) {
+            
+        }
+
         // TODO: implement drawing here!
         // For each model
         //   * For each vertex
@@ -178,7 +183,7 @@ class Renderer {
                 }
             }
             else {
-                model.center = Vector4(scene.models[i].center[0],
+                model.center = Vector(scene.models[i].center[0],
                                        scene.models[i].center[1],
                                        scene.models[i].center[2],
                                        1);
