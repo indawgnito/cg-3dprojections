@@ -34,23 +34,89 @@ class Renderer {
   //
   rotateRight() {}
 
-  //
-  moveLeft() {}
+  // translate PRP and SRP across u-axis
+  moveLeft() {
+    // create references to scene vectors
+    let prp = this.scene.view.prp;
+    let srp = this.scene.view.srp;
 
-  //
+    // reference to u component of vup vector
+    let u = this.scene.view.vup.x;
+  }
+
+  // translate PRP and SRP across u-axis
   moveRight() {}
 
-  //
+  // translate prp and srp across n-axis
   moveBackward() {}
 
-  //
+  // translate prp and srp across n-axis
   moveForward() {}
 
   //
   draw() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    for (let i = 0; i < this.scene.models.length; i++) {}
+    for (let i = 0; i < this.scene.models.length; i++) {
+      let model = this.scene.models.length;
+
+      switch (model.type) {
+        case "generic":
+          // handle generic model case
+
+          // MAIN PERSPECTIVE PROJECTION
+          let transformedVertices = [];
+
+          // for each vertex...
+          for (const vertex of model.vertices) {
+            // create 4 component vector from 3-component array [x,y,z]
+            const vertexToTransform = new Vector(4);
+            vertexToTransform.x = vertex[0];
+            vertexToTransform.y = vertex[1];
+            vertexToTransform.z = vertex[2];
+            vertexToTransform.w = 1;
+
+            // transform to canonical view volume
+            const transformedVertex = Matrix.multiply([
+              CG.mat4x4Perspective(),
+              vertexToTransform,
+            ]);
+
+            // push to list of vertices which will be transformed
+            transformedVertices.push(transformedVertex);
+          }
+
+          // CLIPPING
+
+          // 3. Mper
+          // 4. Viewport
+          break;
+        case "cube":
+          // handle cube
+
+          break;
+        case "cone":
+          // handle cone
+          break;
+        case "cylinder":
+          // handle cylinder
+          break;
+        case "sphere":
+          // handle sphere
+
+          // for each stack (separated by horizontal lines)...
+          for (let j = 0; j < model.stacks; j++) {
+            // for each slice (separated by vertical lines)...
+            for (let k = 0; k < model.slices; k++) {
+              //
+            }
+          }
+
+          break;
+        default:
+          console.log("No model type matched.");
+      }
+    }
 
     // TODO: implement drawing here!
     // For each model
@@ -182,7 +248,7 @@ class Renderer {
           }
         }
       } else {
-        model.center = Vector(
+        model.center = new Vector(
           scene.models[i].center[0],
           scene.models[i].center[1],
           scene.models[i].center[2],
