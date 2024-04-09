@@ -58,7 +58,7 @@ class Renderer {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     for (let i = 0; i < this.scene.models.length; i++) {
-      let model = this.scene.models.length;
+      let model = this.scene.models[i];
 
       switch (model.type) {
         case "generic":
@@ -70,26 +70,87 @@ class Renderer {
           // for each vertex...
           for (const vertex of model.vertices) {
             // create 4 component vector from 3-component array [x,y,z]
-            const vertexToTransform = new Vector(4);
-            vertexToTransform.x = vertex[0];
-            vertexToTransform.y = vertex[1];
-            vertexToTransform.z = vertex[2];
-            vertexToTransform.w = 1;
+            const vertexToTransform = CG.Vector4(
+              vertex.x,
+              vertex.y,
+              vertex.z,
+              vertex.w
+            );
 
-            // transform to canonical view volume
+            // TRANSFORM TO CANONICAL VIEW VOLUME...
+
+            // transform vertex to canonical view volume
             const transformedVertex = Matrix.multiply([
-              CG.mat4x4Perspective(),
+              CG.mat4x4Perspective(
+                this.scene.view.prp,
+                this.scene.view.srp,
+                this.scene.view.vup,
+                this.scene.view.clip
+              ),
               vertexToTransform,
             ]);
-
-            // push to list of vertices which will be transformed
+            // push to list of vertices which have been transformed
             transformedVertices.push(transformedVertex);
           }
 
           // CLIPPING
+          let clippedEdges = [];
+          for (let i = 0; i < model.edges.length; i++) {
+            let edge = model.edges[i];
+
+            // create line object with two endpoints
+            const line = {
+              pt0: transformedVertices[edge[0]],
+              pt1: transformedVertices[edge[1]],
+            };
+
+            // clip line
+            const clippedLine = this.clipLinePerspective(
+              line,
+              this.scene.view.clip[4]
+            );
+
+            if (clippedLine !== null) {
+              // update edges with clipped line
+              clippedEdges.push([edge[0], edge[1]]);
+
+              // update vertices with clipped line vertices
+              transformedVertices[edge[0]] = clippedLine.pt0;
+              transformedVertices[edge[1]] = clippedLine.pt1;
+            }
+          }
 
           // 3. Mper
+          for (let i = 0; i < transformedVertices.length; i++) {
+            transformedVertices[i] = Matrix.multiply([
+              CG.mat4x4MPer(),
+              transformedVertices[i],
+            ]);
+          }
+
           // 4. Viewport
+          for (let i = 0; i < transformedVertices.length; i++) {
+            transformedVertices[i] = Matrix.multiply([
+              CG.mat4x4Viewport(this.canvas.width, this.canvas.height),
+              transformedVertices[i],
+            ]);
+          }
+
+          // draw edges
+          for (let i = 0; i < clippedEdges.length; i++) {
+            const edge = clippedEdges[i];
+            const pt0 = transformedVertices[edge[0]];
+            const pt1 = transformedVertices[edge[1]];
+
+            // draw line, round down to nearest integer
+            this.drawLine(
+              Math.floor(pt0.x),
+              Math.floor(pt0.y),
+              Math.floor(pt1.x),
+              Math.floor(pt1.y)
+            );
+          }
+
           break;
         case "cube":
           // handle cube
@@ -115,6 +176,7 @@ class Renderer {
           break;
         default:
           console.log("No model type matched.");
+          console.log("Model type: " + model.type);
       }
     }
 
@@ -158,20 +220,22 @@ class Renderer {
   // z_min:        float (near clipping plane in canonical view volume)
   clipLinePerspective(line, z_min) {
     let result = null;
-    let out0 = this.outcodePerspective(line.pt0, z_min);
-    let out1 = this.outcodePerspective(line.pt1, z_min);
+    let pt0 = new CG.Vector4(line.pt0.x, line.pt0.y, line.pt0.z, line.pt0.w);
+    let pt1 = new CG.Vector4(line.pt1.x, line.pt1.y, line.pt1.z, line.pt1.w);
+    let out0 = this.outcodePerspective(pt0, z_min);
+    let out1 = this.outcodePerspective(pt1, z_min);
 
     // TODO: implement clipping here!
 
     // trivially accept if both endpoints are within view rectangle
     // bitwise or the outcode - result equals 0
-    if ((out0 | out1) == 0) {
+    if ((out0 | out1) === 0) {
       result = line;
       return result;
     }
     // trivially reject if both endpoints lie outside the same edge
     // bitwise AND the outcode - result not 0
-    else if ((out0 & out1) != 0) {
+    else if ((out0 & out1) !== 0) {
       // note that result will be null at this point
       return result;
     }
@@ -205,7 +269,7 @@ class Renderer {
 
       // iterate through character indices in bit string from R to L
       for (let i = bitString.length - 1; i > 0; i++) {
-        if (bitString.charAt(i) == "1") firstBitIndex = i;
+        if (bitString.charAt(i) === "1") firstBitIndex = i;
       }
 
       //  - calculate intersection point between line and corresponding edge
@@ -215,7 +279,7 @@ class Renderer {
       // z = z0 + t * (z1 - z0)
       // and x0, y0, and z0 are the coordinates of point 1
       // while x1, y1, and z1 are the coordinates of point 2
-      if (firstBitIndex == 0) {
+      if (firstBitIndex === 0) {
         // left of left plane, left: x = -1
 
         let deltaX = p1.x - p0.x;
@@ -224,7 +288,15 @@ class Renderer {
         let t = (-pt0.x + pt0.z) / (deltaX - deltaZ);
 
         let x = pt0.x + t * deltaX;
-      } else if (firstBitIndex == 1) {
+
+        if (selectedEndpoint === "0") {
+          // update endpoint 0's x value
+          p0.x = x;
+        } else {
+          // update endpoint 1's x value
+          p1.x = x;
+        }
+      } else if (firstBitIndex === 1) {
         // right of right plane, right: x = 1
 
         let deltaX = p1.x - p0.x;
@@ -233,7 +305,15 @@ class Renderer {
         let t = (pt0.x + pt0.z) / (-deltaX - deltaZ);
 
         let x = pt0.x + t * deltaX;
-      } else if (firstBitIndex == 2) {
+
+        if (selectedEndpoint === "0") {
+          // update endpoint 0's x value
+          p0.x = x;
+        } else {
+          // update endpoint 1's x value
+          p1.x = x;
+        }
+      } else if (firstBitIndex === 2) {
         // below the bottom plane, bottom:: y = -1
 
         let deltaY = p1.y - p0.y;
@@ -242,7 +322,15 @@ class Renderer {
         let t = (-pt0.y + pt0.z) / (deltaY - deltaZ);
 
         let y = pt0.y + t * deltaY;
-      } else if (firstBitIndex == 3) {
+
+        if (selectedEndpoint === "0") {
+          // update endpoint 0's y value
+          p0.y = y;
+        } else {
+          // update endpoint 1's y value
+          p1.y = y;
+        }
+      } else if (firstBitIndex === 3) {
         // above the top plane, top: y = 1
 
         let deltaY = p1.y - p0.y;
@@ -251,7 +339,15 @@ class Renderer {
         let t = (pt0.y + pt0.z) / (-deltaY - deltaZ);
 
         let y = pt0.y + t * deltaY;
-      } else if (firstBitIndex == 4) {
+
+        if (selectedEndpoint === "0") {
+          // update endpoint 0's y value
+          p0.y = y;
+        } else {
+          // update endpoint 1's y value
+          p1.y = y;
+        }
+      } else if (firstBitIndex === 4) {
         // in back of the far plane, far: z = -1
 
         let deltaZ = p1.z - p0.z;
@@ -259,7 +355,15 @@ class Renderer {
         let t = (-pt0.z - 1) / deltaZ;
 
         let z = pt0.z + t * deltaZ;
-      } else if (firstBitIndex == 5) {
+
+        if (selectedEndpoint === "0") {
+          // update endpoint 0's z value
+          p0.z = z;
+        } else {
+          // update endpoint 1's z value
+          p1.z = z;
+        }
+      } else if (firstBitIndex === 5) {
         // in front of the near plane, near: z = 0
 
         let deltaZ = p1.z - p0.z;
@@ -268,11 +372,11 @@ class Renderer {
 
         let z = pt0.z + t * deltaZ;
 
-        if (selectedEndpoint == "0") {
-          // update endpoint's z value
+        if (selectedEndpoint === "0") {
+          // update endpoint 0's z value
           p0.z = z;
         } else {
-          // update endpoint's z value
+          // update endpoint 1's z value
           p1.z = z;
         }
       }
@@ -280,8 +384,8 @@ class Renderer {
       // clip line again until trivially accepted or rejected
       // I'm just using recursion to handle this
       return this.clipLinePerspective({
-        pt0: new CG.Vector4(p0.x, p0.y, p0.z, line.pt0.w),
-        pt1: new CG.Vector4(p1.x, p1.y, p1.z, line.pt1.w),
+        pt0: CG.Vector4(p0.x, p0.y, p0.z, line.pt0.w),
+        pt1: CG.Vector4(p1.x, p1.y, p1.z, line.pt1.w),
       });
     }
   }
@@ -366,7 +470,7 @@ class Renderer {
           }
         }
       } else {
-        model.center = new Vector(
+        model.center = CG.Vector4(
           scene.models[i].center[0],
           scene.models[i].center[1],
           scene.models[i].center[2],

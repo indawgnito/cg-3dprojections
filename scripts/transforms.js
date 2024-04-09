@@ -2,8 +2,11 @@ import { Matrix, Vector } from "./matrix.js";
 
 // create a 4x4 matrix to the perspective projection / view matrix
 function mat4x4Perspective(prp, srp, vup, clip) {
-  let n = (prp - srp).normalize();
-  let u = vup.cross(n).normalize();
+  let n = prp.subtract(srp);
+  n.normalize();
+  // new vector
+  let u = vup.cross(n);
+  u.normalize();
   let v = n.cross(u);
 
   let t = new Matrix(4, 4);
@@ -23,9 +26,13 @@ function mat4x4Perspective(prp, srp, vup, clip) {
   ];
 
   let cw = new Vector(3);
+  cw.x = (clip[0] + clip[1]) / 2;
+  cw.y = (clip[2] + clip[3]) / 2;
+  cw.z = -1 * clip[4];
+
   cw.values = [(clip[0] + clip[1]) / 2, (clip[2] + clip[3]) / 2, -1 * clip[4]];
-  shx = -cw[0] / cw[2];
-  shy = -cw[1] / cw[3];
+  let shx = -cw.x / cw.z;
+  let shy = -cw.y / cw.z;
 
   let s = new Matrix(4, 4);
   s.values = [
@@ -43,7 +50,7 @@ function mat4x4Perspective(prp, srp, vup, clip) {
     [0, 0, 0, 1],
   ];
 
-  let transform = Matrix.multiply([t, r, cw, p]);
+  let transform = Matrix.multiply([p, s, r, t]);
 
   return transform;
 }
