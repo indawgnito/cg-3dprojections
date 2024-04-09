@@ -182,12 +182,15 @@ class Renderer {
 
       let p0 = line.pt0;
       let p1 = line.pt1;
+      let selectedEndpoint;
 
       if (out0 > 0) {
         // pt 0 has outcode > 0
 
         // populate bit string with base 2 number
         bitString = out0.toString(2);
+
+        selectedEndpoint = 0;
       } else {
         // must be point 1 whose outcode is > 0
         // indicating that it is outside bounds
@@ -195,6 +198,7 @@ class Renderer {
 
         // populate bit string with base 2 number
         bitString = out1.toString(2);
+        selectedEndpoint = 1;
       }
       // find 1st bit set to 1 in selected endpoint's outcode
       let firstBitIndex = -1;
@@ -263,14 +267,18 @@ class Renderer {
         let t = (pt0.z - z_min) / -deltaZ;
 
         let z = pt0.z + t * deltaZ;
+
+        if (selectedEndpoint == "0") {
+          // update endpoint's z value
+          p0.z = z;
+        } else {
+          // update endpoint's z value
+          p1.z = z;
+        }
       }
 
-      //  - replace selected endpoint with this intersection point
-
-      //  - recalculate endpoint's outcode
-      out0 = this.outcodePerspective(p0, z_min);
-      out1 = this.outcodePerspective(p1, z_min);
       // clip line again until trivially accepted or rejected
+      // I'm just using recursion to handle this
       return this.clipLinePerspective({
         pt0: new CG.Vector4(p0.x, p0.y, p0.z, line.pt0.w),
         pt1: new CG.Vector4(p1.x, p1.y, p1.z, line.pt1.w),
