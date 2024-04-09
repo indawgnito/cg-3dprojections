@@ -110,6 +110,8 @@ class Renderer {
               this.scene.view.clip[4]
             );
 
+            console.log(clippedLine);
+
             if (clippedLine !== null) {
               // update edges with clipped line
               clippedEdges.push([edge[0], edge[1]]);
@@ -143,15 +145,6 @@ class Renderer {
             const pt1 = transformedVertices[edge[1]];
 
             console.log(pt0);
-
-            // draw line, round down to nearest integer
-            console.log(
-              "Drawing line from (" + pt0.x,
-              pt0.y,
-              ") to (" + pt1.x,
-              pt1.y,
-              ")"
-            );
 
             // print out the coordinates of the endpoints
             console.log(
@@ -239,16 +232,15 @@ class Renderer {
   // z_min:        float (near clipping plane in canonical view volume)
   clipLinePerspective(line, z_min) {
     let result = null;
-    let pt0 = new CG.Vector4(line.pt0.x, line.pt0.y, line.pt0.z, line.pt0.w);
-    let pt1 = new CG.Vector4(line.pt1.x, line.pt1.y, line.pt1.z, line.pt1.w);
-    let out0 = this.outcodePerspective(pt0, z_min);
-    let out1 = this.outcodePerspective(pt1, z_min);
+    let out0 = this.outcodePerspective(line.pt0, z_min);
+    let out1 = this.outcodePerspective(line.pt1, z_min);
 
     // TODO: implement clipping here!
 
     // trivially accept if both endpoints are within view rectangle
     // bitwise or the outcode - result equals 0
     if ((out0 | out1) === 0) {
+      console.log("Trivially accepted");
       result = line;
       return result;
     }
@@ -256,6 +248,10 @@ class Renderer {
     // bitwise AND the outcode - result not 0
     else if ((out0 & out1) !== 0) {
       // note that result will be null at this point
+      console.log("Trivially rejected");
+      console.log("out0: " + out0.toString(2));
+      console.log("out1: " + out1.toString(2));
+      console.log("out0 & out1: " + (out0 & out1).toString(2));
       return result;
     }
     // otherwise do some calculations...
@@ -287,7 +283,7 @@ class Renderer {
       let firstBitIndex = -1;
 
       // iterate through character indices in bit string from R to L
-      for (let i = bitString.length - 1; i > 0; i++) {
+      for (let i = bitString.length - 1; i >= 0; i--) {
         if (bitString.charAt(i) === "1") firstBitIndex = i;
       }
 
@@ -298,104 +294,151 @@ class Renderer {
       // z = z0 + t * (z1 - z0)
       // and x0, y0, and z0 are the coordinates of point 1
       // while x1, y1, and z1 are the coordinates of point 2
+      let deltaX = p1.x - p0.x;
+      let deltaY = p1.y - p0.y;
+      let deltaZ = p1.z - p0.z;
+
       if (firstBitIndex === 0) {
         // left of left plane, left: x = -1
 
-        let deltaX = p1.x - p0.x;
-        let deltaZ = p1.z - p0.z;
-
         let t = (-pt0.x + pt0.z) / (deltaX - deltaZ);
 
-        let x = pt0.x + t * deltaX;
+        // We know the x value is -1
+        const x = -1;
+
+        // calculate y value
+        const y = pt0.y + t * deltaY;
+
+        // calculate z value
+        const z = pt0.z + t * deltaZ;
 
         if (selectedEndpoint === "0") {
-          // update endpoint 0's x value
+          // update endpoint 0's coordinates
           p0.x = x;
+          p0.y = y;
+          p0.z = z;
         } else {
-          // update endpoint 1's x value
+          // update endpoint 1's coordinates
           p1.x = x;
+          p1.y = y;
+          p1.z = z;
         }
       } else if (firstBitIndex === 1) {
         // right of right plane, right: x = 1
 
-        let deltaX = p1.x - p0.x;
-        let deltaZ = p1.z - p0.z;
-
         let t = (pt0.x + pt0.z) / (-deltaX - deltaZ);
 
-        let x = pt0.x + t * deltaX;
+        // we know the x value is 1
+        let x = 1;
+
+        // calculate y value
+        let y = pt0.y + t * deltaY;
+
+        // calculate z value
+        let z = pt0.z + t * deltaZ;
 
         if (selectedEndpoint === "0") {
-          // update endpoint 0's x value
+          // update endpoint 0's coordinates
           p0.x = x;
+          p0.y = y;
+          p0.z = z;
         } else {
-          // update endpoint 1's x value
+          // update endpoint 1's coordinates
           p1.x = x;
+          p1.y = y;
+          p1.z = z;
         }
       } else if (firstBitIndex === 2) {
         // below the bottom plane, bottom:: y = -1
 
-        let deltaY = p1.y - p0.y;
-        let deltaZ = p1.z - p0.z;
-
         let t = (-pt0.y + pt0.z) / (deltaY - deltaZ);
 
-        let y = pt0.y + t * deltaY;
+        // we know y = -1
+        let y = -1;
+
+        // calculate x value
+        let x = pt0.x + t * deltaX;
+
+        // calculate z value
+        let z = pt0.z + t * deltaZ;
 
         if (selectedEndpoint === "0") {
-          // update endpoint 0's y value
+          // update endpoint 0's coordinates
+          p0.x = x;
           p0.y = y;
+          p0.z = z;
         } else {
-          // update endpoint 1's y value
+          // update endpoint 1's coordinates
+          p1.x = x;
           p1.y = y;
+          p1.z = z;
         }
       } else if (firstBitIndex === 3) {
         // above the top plane, top: y = 1
 
-        let deltaY = p1.y - p0.y;
-        let deltaZ = p1.z - p0.z;
-
         let t = (pt0.y + pt0.z) / (-deltaY - deltaZ);
 
-        let y = pt0.y + t * deltaY;
+        let y = 1;
 
         if (selectedEndpoint === "0") {
-          // update endpoint 0's y value
+          // update endpoint 0's coordinates
+          p0.x = x;
           p0.y = y;
+          p0.z = z;
         } else {
-          // update endpoint 1's y value
+          // update endpoint 1's coordinates
+          p1.x = x;
           p1.y = y;
+          p1.z = z;
         }
       } else if (firstBitIndex === 4) {
         // in back of the far plane, far: z = -1
 
-        let deltaZ = p1.z - p0.z;
-
         let t = (-pt0.z - 1) / deltaZ;
 
-        let z = pt0.z + t * deltaZ;
+        // we know z = -1
+        let z = -1;
+
+        // calculate x value
+        let x = pt0.x + t * deltaX;
+
+        // calculate y value
+        let y = pt0.y + t * deltaY;
 
         if (selectedEndpoint === "0") {
-          // update endpoint 0's z value
+          // update endpoint 0's coordinates
+          p0.x = x;
+          p0.y = y;
           p0.z = z;
         } else {
-          // update endpoint 1's z value
+          // update endpoint 1's coordinates
+          p1.x = x;
+          p1.y = y;
           p1.z = z;
         }
       } else if (firstBitIndex === 5) {
         // in front of the near plane, near: z = 0
 
-        let deltaZ = p1.z - p0.z;
-
         let t = (pt0.z - z_min) / -deltaZ;
 
-        let z = pt0.z + t * deltaZ;
+        // we know z = 0
+        let z = 0;
+
+        // calculate x value
+        let x = pt0.x + t * deltaX;
+
+        // calculate y value
+        let y = pt0.y + t * deltaY;
 
         if (selectedEndpoint === "0") {
-          // update endpoint 0's z value
+          // update endpoint 0's coordinates
+          p0.x = x;
+          p0.y = y;
           p0.z = z;
         } else {
-          // update endpoint 1's z value
+          // update endpoint 1's coordinates
+          p1.x = x;
+          p1.y = y;
           p1.z = z;
         }
       }
