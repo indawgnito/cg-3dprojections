@@ -11,24 +11,25 @@ function mat4x4Perspective(prp, srp, vup, clip) {
 
   let t = new Matrix(4, 4);
   t.values = [
-    [1, 0, 0, srp[0]],
-    [0, 1, 0, srp[1]],
-    [0, 0, 1, srp[2]],
+    [1, 0, 0, -prp.x],
+    [0, 1, 0, -prp.y],
+    [0, 0, 1, -prp.z],
     [0, 0, 0, 1],
   ];
 
   let r = new Matrix(4, 4);
   r.values = [
-    [u[0], u[1], u[2], 0],
-    [v[0], v[1], v[2], 0],
-    [n[0], n[1], n[2], 0],
+    [u.x, u.y, u.z, 0],
+    [v.x, v.y, v.z, 0],
+    [n.x, n.y, n.z, 0],
     [0, 0, 0, 1],
   ];
 
-  let cw = new Vector(3);
-  cw.x = (clip[0] + clip[1]) / 2;
-  cw.y = (clip[2] + clip[3]) / 2;
-  cw.z = -1 * clip[4];
+  let cw = new Vector3(
+    (clip[0] + clip[1]) / 2,
+    (clip[2] + clip[3]) / 2,
+    -1 * clip[4]
+  );
 
   cw.values = [(clip[0] + clip[1]) / 2, (clip[2] + clip[3]) / 2, -1 * clip[4]];
   let shx = -cw.x / cw.z;
@@ -45,7 +46,7 @@ function mat4x4Perspective(prp, srp, vup, clip) {
   let p = new Matrix(4, 4);
   p.values = [
     [((2 * clip[4]) / (clip[1] - clip[0])) * clip[5], 0, 0, 0],
-    [0, ((2 * clip[4]) / (clip[2] - clip[3])) * clip[5]],
+    [0, ((2 * clip[4]) / (clip[2] - clip[3])) * clip[5], 0, 0],
     [0, 0, 1 / clip[5], 0],
     [0, 0, 0, 1],
   ];

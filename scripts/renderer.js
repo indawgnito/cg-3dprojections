@@ -142,12 +142,31 @@ class Renderer {
             const pt0 = transformedVertices[edge[0]];
             const pt1 = transformedVertices[edge[1]];
 
+            console.log(pt0);
+
             // draw line, round down to nearest integer
+            console.log(
+              "Drawing line from (" + pt0.x,
+              pt0.y,
+              ") to (" + pt1.x,
+              pt1.y,
+              ")"
+            );
+
+            // print out the coordinates of the endpoints
+            console.log(
+              "Drawing line from (" + pt0.x / pt0.w,
+              pt0.y / pt0.w,
+              ") to (" + pt1.x / pt1.w,
+              pt1.y / pt1.w,
+              ")"
+            );
+
             this.drawLine(
-              Math.floor(pt0.x),
-              Math.floor(pt0.y),
-              Math.floor(pt1.x),
-              Math.floor(pt1.y)
+              Math.floor(pt0.x / pt0.w),
+              Math.floor(pt0.y / pt0.w),
+              Math.floor(pt1.x / pt1.w),
+              Math.floor(pt1.y / pt1.w)
             );
           }
 
