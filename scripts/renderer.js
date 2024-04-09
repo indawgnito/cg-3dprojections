@@ -158,14 +158,124 @@ class Renderer {
   // z_min:        float (near clipping plane in canonical view volume)
   clipLinePerspective(line, z_min) {
     let result = null;
-    let p0 = CG.Vector3(line.pt0.x, line.pt0.y, line.pt0.z);
-    let p1 = CG.Vector3(line.pt1.x, line.pt1.y, line.pt1.z);
-    let out0 = this.outcodePerspective(p0, z_min);
-    let out1 = this.outcodePerspective(p1, z_min);
+    let out0 = this.outcodePerspective(line.pt0, z_min);
+    let out1 = this.outcodePerspective(line.pt1, z_min);
 
     // TODO: implement clipping here!
 
-    return result;
+    // trivially accept if both endpoints are within view rectangle
+    // bitwise or the outcode - result equals 0
+    if ((out0 | out1) == 0) {
+      result = line;
+      return result;
+    }
+    // trivially reject if both endpoints lie outside the same edge
+    // bitwise AND the outcode - result not 0
+    else if ((out0 & out1) != 0) {
+      // note that result will be null at this point
+      return result;
+    }
+    // otherwise do some calculations...
+    else {
+      // we must select an endpoint which is outside the view rect...
+      let bitString;
+
+      let p0 = line.pt0;
+      let p1 = line.pt1;
+
+      if (out0 > 0) {
+        // pt 0 has outcode > 0
+
+        // populate bit string with base 2 number
+        bitString = out0.toString(2);
+      } else {
+        // must be point 1 whose outcode is > 0
+        // indicating that it is outside bounds
+        // of at least one edge
+
+        // populate bit string with base 2 number
+        bitString = out1.toString(2);
+      }
+      // find 1st bit set to 1 in selected endpoint's outcode
+      let firstBitIndex = -1;
+
+      // iterate through character indices in bit string from R to L
+      for (let i = bitString.length - 1; i > 0; i++) {
+        if (bitString.charAt(i) == "1") firstBitIndex = i;
+      }
+
+      //  - calculate intersection point between line and corresponding edge
+      // note: parametric equations
+      // x = x0 + t * (x1 - x0)
+      // y = y0 + t * (y1 - y0)
+      // z = z0 + t * (z1 - z0)
+      // and x0, y0, and z0 are the coordinates of point 1
+      // while x1, y1, and z1 are the coordinates of point 2
+      if (firstBitIndex == 0) {
+        // left of left plane, left: x = -1
+
+        let deltaX = p1.x - p0.x;
+        let deltaZ = p1.z - p0.z;
+
+        let t = (-pt0.x + pt0.z) / (deltaX - deltaZ);
+
+        let x = pt0.x + t * deltaX;
+      } else if (firstBitIndex == 1) {
+        // right of right plane, right: x = 1
+
+        let deltaX = p1.x - p0.x;
+        let deltaZ = p1.z - p0.z;
+
+        let t = (pt0.x + pt0.z) / (-deltaX - deltaZ);
+
+        let x = pt0.x + t * deltaX;
+      } else if (firstBitIndex == 2) {
+        // below the bottom plane, bottom:: y = -1
+
+        let deltaY = p1.y - p0.y;
+        let deltaZ = p1.z - p0.z;
+
+        let t = (-pt0.y + pt0.z) / (deltaY - deltaZ);
+
+        let y = pt0.y + t * deltaY;
+      } else if (firstBitIndex == 3) {
+        // above the top plane, top: y = 1
+
+        let deltaY = p1.y - p0.y;
+        let deltaZ = p1.z - p0.z;
+
+        let t = (pt0.y + pt0.z) / (-deltaY - deltaZ);
+
+        let y = pt0.y + t * deltaY;
+      } else if (firstBitIndex == 4) {
+        // in back of the far plane, far: z = -1
+
+        let deltaZ = p1.z - p0.z;
+
+        let t = (-pt0.z - 1) / deltaZ;
+
+        let z = pt0.z + t * deltaZ;
+      } else if (firstBitIndex == 5) {
+        // in front of the near plane, near: z = 0
+
+        let deltaZ = p1.z - p0.z;
+
+        let t = (pt0.z - z_min) / -deltaZ;
+
+        let z = pt0.z + t * deltaZ;
+      }
+
+      //  - replace selected endpoint with this intersection point
+
+      //  - recalculate endpoint's outcode
+      out0 = this.outcodePerspective(p0, z_min);
+      out1 = this.outcodePerspective(p1, z_min);
+      // clip line again until trivially accepted or rejected
+      return this.clipLinePerspective({
+        pt0: new CG.Vector4(p0.x, p0.y, p0.z, line.pt0.w),
+        pt1: new CG.Vector4(p1.x, p1.y, p1.z, line.pt1.w),
+      });
+    }
   }
 
   //
