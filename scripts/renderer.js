@@ -334,29 +334,27 @@ class Renderer {
 
         t = (-x + z) / (deltaX - deltaZ);
 
-        // We know the x value is z
-        x = z;
-
         // calculate y value
         y = y + t * deltaY;
 
         // calculate z value
         z = z + t * deltaZ;
+
+        // We know the x value is z
+        x = z;
       } else if (firstBitIndex === 1) {
         // right of right plane, right: x = -z
 
         t = (x + z) / (-deltaX - deltaZ);
 
-        // we know the x value is -z
-        x = -z;
-
         // calculate y value
         y = y + t * deltaY;
 
         // calculate z value
         z = z + t * deltaZ;
 
-        console.log("CLIP X = -Z");
+        // we know the x value is -z
+        x = -z;
       } else if (firstBitIndex === 2) {
         // below the bottom plane, bottom:: y = z
 
@@ -365,13 +363,11 @@ class Renderer {
         // calculate x value
         x = x + t * deltaX;
 
-        // we know y = z
-        y = z;
-
         // calculate z value
         z = z + t * deltaZ;
 
-        console.log("CLIP Y = Z");
+        // we know y = z
+        y = z;
       } else if (firstBitIndex === 3) {
         // above the top plane, top: y = -z
 
@@ -380,13 +376,11 @@ class Renderer {
         // calculate x value
         x = x + t * deltaX;
 
-        // we know y = -z
-        y = -z;
-
         // calculate z value
         z = z + t * deltaZ;
 
-        console.log("CLIP Y = -Z");
+        // we know y = -z
+        y = -z;
       } else if (firstBitIndex === 4) {
         // in back of the far plane, far: z = -1
 
@@ -400,8 +394,6 @@ class Renderer {
 
         // we know z = -1
         z = -1;
-
-        console.log("CLIP Z = -1");
       } else if (firstBitIndex === 5) {
         // in front of the near plane, near: z = z_min
 
@@ -415,8 +407,6 @@ class Renderer {
 
         // we know z = z_min
         z = z_min;
-
-        console.log("CLIP Z = Z_MIN");
       }
 
       if (selectedEndpoint === 0) {
