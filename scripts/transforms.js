@@ -4,18 +4,13 @@ import { Matrix, Vector } from "./matrix.js";
 function mat4x4Perspective(prp, srp, vup, clip) {
   let n = prp.subtract(srp);
   n.normalize();
-  // new vector
+
   let u = vup.cross(n);
   u.normalize();
   let v = n.cross(u);
 
   let t = new Matrix(4, 4);
-  t.values = [
-    [1, 0, 0, -prp.x],
-    [0, 1, 0, -prp.y],
-    [0, 0, 1, -prp.z],
-    [0, 0, 0, 1],
-  ];
+  mat4x4Translate(t, -prp.x, -prp.y, -prp.z);
 
   let r = new Matrix(4, 4);
   r.values = [
@@ -31,25 +26,18 @@ function mat4x4Perspective(prp, srp, vup, clip) {
     -1 * clip[4]
   );
 
-  cw.values = [(clip[0] + clip[1]) / 2, (clip[2] + clip[3]) / 2, -1 * clip[4]];
   let shx = -cw.x / cw.z;
   let shy = -cw.y / cw.z;
 
   let s = new Matrix(4, 4);
-  s.values = [
-    [1, 0, shx, 0],
-    [0, 1, shy, 0],
-    [0, 0, 1, 0],
-    [0, 0, 0, 1],
-  ];
+  mat4x4ShearXY(s, shx, shy);
+
+  let sperx = (2 * clip[4]) / ((clip[1] - clip[0]) * clip[5]);
+  let spery = (2 * clip[4]) / ((clip[3] - clip[2]) * clip[5]);
+  let sperz = 1 / clip[5];
 
   let p = new Matrix(4, 4);
-  p.values = [
-    [((2 * clip[4]) / (clip[1] - clip[0])) * clip[5], 0, 0, 0],
-    [0, ((2 * clip[4]) / (clip[2] - clip[3])) * clip[5], 0, 0],
-    [0, 0, 1 / clip[5], 0],
-    [0, 0, 0, 1],
-  ];
+  mat4x4Scale(p, sperx, spery, sperz);
 
   let transform = Matrix.multiply([p, s, r, t]);
 

@@ -77,8 +77,6 @@ class Renderer {
               vertex.w
             );
 
-            // TRANSFORM TO CANONICAL VIEW VOLUME...
-
             // transform vertex to canonical view volume
             const transformedVertex = Matrix.multiply([
               CG.mat4x4Perspective(
@@ -89,69 +87,74 @@ class Renderer {
               ),
               vertexToTransform,
             ]);
+
             // push to list of vertices which have been transformed
             transformedVertices.push(transformedVertex);
           }
 
           // CLIPPING
-          let clippedEdges = [];
+          let clippedLines = [];
+
           for (let i = 0; i < model.edges.length; i++) {
+            // note that edge is an array of two or more indices
             let edge = model.edges[i];
 
-            // create line object with two endpoints
-            const line = {
-              pt0: transformedVertices[edge[0]],
-              pt1: transformedVertices[edge[1]],
-            };
+            for (let j = 0; j < edge.length - 1; j++) {
+              // create line object with two endpoints
+              const line = {
+                pt0: transformedVertices[edge[j]],
+                pt1: transformedVertices[edge[j + 1]],
+              };
 
-            // clip line
-            const clippedLine = this.clipLinePerspective(
-              line,
-              this.scene.view.clip[4]
-            );
+              // clip line
+              const clippedLine = this.clipLinePerspective(
+                line,
+                this.scene.view.clip[4]
+              );
 
-            console.log(clippedLine);
-
-            if (clippedLine !== null) {
-              // update edges with clipped line
-              clippedEdges.push([edge[0], edge[1]]);
-
-              // update vertices with clipped line vertices
-              transformedVertices[edge[0]] = clippedLine.pt0;
-              transformedVertices[edge[1]] = clippedLine.pt1;
+              if (clippedLine !== null) {
+                // update edges with clipped line
+                clippedLines.push(clippedLine);
+              }
             }
           }
 
           // 3. Mper
-          for (let i = 0; i < transformedVertices.length; i++) {
-            transformedVertices[i] = Matrix.multiply([
-              CG.mat4x4MPer(),
-              transformedVertices[i],
-            ]);
+          for (let i = 0; i < clippedLines.length; i++) {
+            clippedLines[i] = {
+              pt0: Matrix.multiply([CG.mat4x4MPer(), clippedLines[i].pt0]),
+              pt1: Matrix.multiply([CG.mat4x4MPer(), clippedLines[i].pt1]),
+            };
           }
 
           // 4. Viewport
-          for (let i = 0; i < transformedVertices.length; i++) {
-            transformedVertices[i] = Matrix.multiply([
-              CG.mat4x4Viewport(this.canvas.width, this.canvas.height),
-              transformedVertices[i],
-            ]);
+          for (let i = 0; i < clippedLines.length; i++) {
+            clippedLines[i] = {
+              pt0: Matrix.multiply([
+                CG.mat4x4Viewport(this.canvas.width, this.canvas.height),
+                clippedLines[i].pt0,
+              ]),
+              pt1: Matrix.multiply([
+                CG.mat4x4Viewport(this.canvas.width, this.canvas.height),
+                clippedLines[i].pt1,
+              ]),
+            };
           }
 
           // draw edges
-          for (let i = 0; i < clippedEdges.length; i++) {
-            const edge = clippedEdges[i];
-            const pt0 = transformedVertices[edge[0]];
-            const pt1 = transformedVertices[edge[1]];
+          for (let i = 0; i < clippedLines.length; i++) {
+            const pt0 = clippedLines[i].pt0;
+            const pt1 = clippedLines[i].pt1;
 
-            console.log(pt0);
-
-            // print out the coordinates of the endpoints
             console.log(
-              "Drawing line from (" + pt0.x / pt0.w,
-              pt0.y / pt0.w,
-              ") to (" + pt1.x / pt1.w,
-              pt1.y / pt1.w,
+              "Drawing line from: (",
+              pt0.x,
+              ",",
+              pt0.y,
+              ") to (",
+              pt1.x,
+              ",",
+              pt1.y,
               ")"
             );
 
@@ -188,7 +191,6 @@ class Renderer {
           break;
         default:
           console.log("No model type matched.");
-          console.log("Model type: " + model.type);
       }
     }
 
@@ -232,36 +234,41 @@ class Renderer {
   // z_min:        float (near clipping plane in canonical view volume)
   clipLinePerspective(line, z_min) {
     let result = null;
-    let out0 = this.outcodePerspective(line.pt0, z_min);
-    let out1 = this.outcodePerspective(line.pt1, z_min);
+    let p0 = CG.Vector3(line.pt0.x, line.pt0.y, line.pt0.z);
+    let p1 = CG.Vector3(line.pt1.x, line.pt1.y, line.pt1.z);
 
-    // TODO: implement clipping here!
+    let out0 = this.outcodePerspective(p0, z_min);
+    let out1 = this.outcodePerspective(p1, z_min);
 
     // trivially accept if both endpoints are within view rectangle
     // bitwise or the outcode - result equals 0
     if ((out0 | out1) === 0) {
-      console.log("Trivially accepted");
-      result = line;
+      result = {
+        pt0: CG.Vector4(p0.x, p0.y, p0.z, line.pt0.w),
+        pt1: CG.Vector4(p1.x, p1.y, p1.z, line.pt1.w),
+      };
       return result;
     }
+
     // trivially reject if both endpoints lie outside the same edge
     // bitwise AND the outcode - result not 0
     else if ((out0 & out1) !== 0) {
-      // note that result will be null at this point
-      console.log("Trivially rejected");
-      console.log("out0: " + out0.toString(2));
-      console.log("out1: " + out1.toString(2));
-      console.log("out0 & out1: " + (out0 & out1).toString(2));
-      return result;
+      return null;
     }
     // otherwise do some calculations...
     else {
       // we must select an endpoint which is outside the view rect...
       let bitString;
 
-      let p0 = line.pt0;
-      let p1 = line.pt1;
       let selectedEndpoint;
+
+      let t;
+      let x;
+      let y;
+      let z;
+      let deltaX;
+      let deltaY;
+      let deltaZ;
 
       if (out0 > 0) {
         // pt 0 has outcode > 0
@@ -269,7 +276,20 @@ class Renderer {
         // populate bit string with base 2 number
         bitString = out0.toString(2);
 
+        // pad to 6 bits
+        while (bitString.length < 6) {
+          bitString = "0" + bitString;
+        }
+
         selectedEndpoint = 0;
+
+        x = p0.x;
+        y = p0.y;
+        z = p0.z;
+
+        deltaX = p1.x - p0.x;
+        deltaY = p1.y - p0.y;
+        deltaZ = p1.z - p0.z;
       } else {
         // must be point 1 whose outcode is > 0
         // indicating that it is outside bounds
@@ -277,7 +297,21 @@ class Renderer {
 
         // populate bit string with base 2 number
         bitString = out1.toString(2);
+
+        // pad to 6 bits
+        while (bitString.length < 6) {
+          bitString = "0" + bitString;
+        }
+
         selectedEndpoint = 1;
+
+        x = p1.x;
+        y = p1.y;
+        z = p1.z;
+
+        deltaX = p0.x - p1.x;
+        deltaY = p0.y - p1.y;
+        deltaZ = p0.z - p1.z;
       }
       // find 1st bit set to 1 in selected endpoint's outcode
       let firstBitIndex = -1;
@@ -294,155 +328,108 @@ class Renderer {
       // z = z0 + t * (z1 - z0)
       // and x0, y0, and z0 are the coordinates of point 1
       // while x1, y1, and z1 are the coordinates of point 2
-      let deltaX = p1.x - p0.x;
-      let deltaY = p1.y - p0.y;
-      let deltaZ = p1.z - p0.z;
 
       if (firstBitIndex === 0) {
-        // left of left plane, left: x = -1
+        // left of left plane, left: x = z
 
-        let t = (-pt0.x + pt0.z) / (deltaX - deltaZ);
+        t = (-x + z) / (deltaX - deltaZ);
 
-        // We know the x value is -1
-        const x = -1;
+        // We know the x value is z
+        x = z;
 
         // calculate y value
-        const y = pt0.y + t * deltaY;
+        y = y + t * deltaY;
 
         // calculate z value
-        const z = pt0.z + t * deltaZ;
-
-        if (selectedEndpoint === "0") {
-          // update endpoint 0's coordinates
-          p0.x = x;
-          p0.y = y;
-          p0.z = z;
-        } else {
-          // update endpoint 1's coordinates
-          p1.x = x;
-          p1.y = y;
-          p1.z = z;
-        }
+        z = z + t * deltaZ;
       } else if (firstBitIndex === 1) {
-        // right of right plane, right: x = 1
+        // right of right plane, right: x = -z
 
-        let t = (pt0.x + pt0.z) / (-deltaX - deltaZ);
+        t = (x + z) / (-deltaX - deltaZ);
 
-        // we know the x value is 1
-        let x = 1;
+        // we know the x value is -z
+        x = -z;
 
         // calculate y value
-        let y = pt0.y + t * deltaY;
+        y = y + t * deltaY;
 
         // calculate z value
-        let z = pt0.z + t * deltaZ;
+        z = z + t * deltaZ;
 
-        if (selectedEndpoint === "0") {
-          // update endpoint 0's coordinates
-          p0.x = x;
-          p0.y = y;
-          p0.z = z;
-        } else {
-          // update endpoint 1's coordinates
-          p1.x = x;
-          p1.y = y;
-          p1.z = z;
-        }
+        console.log("CLIP X = -Z");
       } else if (firstBitIndex === 2) {
-        // below the bottom plane, bottom:: y = -1
+        // below the bottom plane, bottom:: y = z
 
-        let t = (-pt0.y + pt0.z) / (deltaY - deltaZ);
-
-        // we know y = -1
-        let y = -1;
+        t = (-y + z) / (deltaY - deltaZ);
 
         // calculate x value
-        let x = pt0.x + t * deltaX;
+        x = x + t * deltaX;
+
+        // we know y = z
+        y = z;
 
         // calculate z value
-        let z = pt0.z + t * deltaZ;
+        z = z + t * deltaZ;
 
-        if (selectedEndpoint === "0") {
-          // update endpoint 0's coordinates
-          p0.x = x;
-          p0.y = y;
-          p0.z = z;
-        } else {
-          // update endpoint 1's coordinates
-          p1.x = x;
-          p1.y = y;
-          p1.z = z;
-        }
+        console.log("CLIP Y = Z");
       } else if (firstBitIndex === 3) {
-        // above the top plane, top: y = 1
+        // above the top plane, top: y = -z
 
-        let t = (pt0.y + pt0.z) / (-deltaY - deltaZ);
+        t = (y + z) / (-deltaY - deltaZ);
 
-        let y = 1;
+        // calculate x value
+        x = x + t * deltaX;
 
-        if (selectedEndpoint === "0") {
-          // update endpoint 0's coordinates
-          p0.x = x;
-          p0.y = y;
-          p0.z = z;
-        } else {
-          // update endpoint 1's coordinates
-          p1.x = x;
-          p1.y = y;
-          p1.z = z;
-        }
+        // we know y = -z
+        y = -z;
+
+        // calculate z value
+        z = z + t * deltaZ;
+
+        console.log("CLIP Y = -Z");
       } else if (firstBitIndex === 4) {
         // in back of the far plane, far: z = -1
 
-        let t = (-pt0.z - 1) / deltaZ;
+        t = (-z - 1) / deltaZ;
+
+        // calculate x value
+        x = x + t * deltaX;
+
+        // calculate y value
+        y = y + t * deltaY;
 
         // we know z = -1
-        let z = -1;
+        z = -1;
 
-        // calculate x value
-        let x = pt0.x + t * deltaX;
-
-        // calculate y value
-        let y = pt0.y + t * deltaY;
-
-        if (selectedEndpoint === "0") {
-          // update endpoint 0's coordinates
-          p0.x = x;
-          p0.y = y;
-          p0.z = z;
-        } else {
-          // update endpoint 1's coordinates
-          p1.x = x;
-          p1.y = y;
-          p1.z = z;
-        }
+        console.log("CLIP Z = -1");
       } else if (firstBitIndex === 5) {
-        // in front of the near plane, near: z = 0
+        // in front of the near plane, near: z = z_min
 
-        let t = (pt0.z - z_min) / -deltaZ;
-
-        // we know z = 0
-        let z = 0;
+        t = (z - z_min) / -deltaZ;
 
         // calculate x value
-        let x = pt0.x + t * deltaX;
+        x = x + t * deltaX;
 
         // calculate y value
-        let y = pt0.y + t * deltaY;
+        y = y + t * deltaY;
 
-        if (selectedEndpoint === "0") {
-          // update endpoint 0's coordinates
-          p0.x = x;
-          p0.y = y;
-          p0.z = z;
-        } else {
-          // update endpoint 1's coordinates
-          p1.x = x;
-          p1.y = y;
-          p1.z = z;
-        }
+        // we know z = z_min
+        z = z_min;
+
+        console.log("CLIP Z = Z_MIN");
       }
 
+      if (selectedEndpoint === 0) {
+        // update endpoint 0's coordinates
+        p0.x = x;
+        p0.y = y;
+        p0.z = z;
+      } else {
+        // update endpoint 1's coordinates
+        p1.x = x;
+        p1.y = y;
+        p1.z = z;
+      }
       // clip line again until trivially accepted or rejected
       // I'm just using recursion to handle this
       return this.clipLinePerspective({
