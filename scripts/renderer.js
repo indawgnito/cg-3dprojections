@@ -29,29 +29,54 @@ class Renderer {
   }
 
   //
-  rotateLeft() {}
+  rotateLeft() {
+    // let srp = this.scene.view.srp;
+    // let prp = this.scene.view.prp;
+    // let d = new Matrix(4, 1); 
+    // d.values = [[srp.x - prp.x], [srp.y - prp.y], [srp.z - prp.z], [1]];
+    // let r = new Matrix(4, 4);
+    // CG.mat4x4RotateY(r, 1);
+    // d = Matrix.multiply([r, d]);
+    
+    // this.scene.view.srp.x = d[0] + prp.x;
+    // this.scene.view.srp.y = d[1] + prp.y;
+    // this.scene.view.srp.z = d[2] + prp.z;
+
+    // this.draw();
+  }
 
   //
-  rotateRight() {}
+  rotateRight() {
 
-  // translate PRP and SRP across u-axis
-  moveLeft() {
-    // create references to scene vectors
-    let prp = this.scene.view.prp;
-    let srp = this.scene.view.srp;
-
-    // reference to u component of vup vector
-    let u = this.scene.view.vup.x;
   }
 
   // translate PRP and SRP across u-axis
-  moveRight() {}
+  moveLeft() {
+    this.scene.view.srp.x += 1.0;
+    this.scene.view.prp.x += 1.0;
+    this.draw();
+  }
+
+  // translate PRP and SRP across u-axis
+  moveRight() {
+    this.scene.view.srp.x -= 1.0;
+    this.scene.view.prp.x -= 1.0;
+    this.draw();
+  }
 
   // translate prp and srp across n-axis
-  moveBackward() {}
+  moveBackward() {
+    this.scene.view.srp.z += 1.0;
+    this.scene.view.prp.z += 1.0;
+    this.draw();
+  }
 
   // translate prp and srp across n-axis
-  moveForward() {}
+  moveForward() {
+    this.scene.view.srp.z -= 1.0;
+    this.scene.view.prp.z -= 1.0;
+    this.draw();
+  }
 
   //
   draw() {
