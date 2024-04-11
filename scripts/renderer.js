@@ -146,18 +146,6 @@ class Renderer {
             const pt0 = clippedLines[i].pt0;
             const pt1 = clippedLines[i].pt1;
 
-            console.log(
-              "Drawing line from: (",
-              pt0.x,
-              ",",
-              pt0.y,
-              ") to (",
-              pt1.x,
-              ",",
-              pt1.y,
-              ")"
-            );
-
             this.drawLine(
               Math.floor(pt0.x / pt0.w),
               Math.floor(pt0.y / pt0.w),
