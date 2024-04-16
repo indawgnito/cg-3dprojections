@@ -32,23 +32,19 @@ class Renderer {
   rotateLeft() {
     // let srp = this.scene.view.srp;
     // let prp = this.scene.view.prp;
-    // let d = new Matrix(4, 1); 
+    // let d = new Matrix(4, 1);
     // d.values = [[srp.x - prp.x], [srp.y - prp.y], [srp.z - prp.z], [1]];
     // let r = new Matrix(4, 4);
     // CG.mat4x4RotateY(r, 1);
     // d = Matrix.multiply([r, d]);
-    
     // this.scene.view.srp.x = d[0] + prp.x;
     // this.scene.view.srp.y = d[1] + prp.y;
     // this.scene.view.srp.z = d[2] + prp.z;
-
     // this.draw();
   }
 
   //
-  rotateRight() {
-
-  }
+  rotateRight() {}
 
   // translate PRP and SRP across u-axis
   moveLeft() {
@@ -89,121 +85,288 @@ class Renderer {
         case "generic":
           // handle generic model case
 
-          // MAIN PERSPECTIVE PROJECTION
-          let transformedVertices = [];
-
-          // for each vertex...
-          for (const vertex of model.vertices) {
-            // create 4 component vector from 3-component array [x,y,z]
-            const vertexToTransform = CG.Vector4(
-              vertex.x,
-              vertex.y,
-              vertex.z,
-              vertex.w
-            );
-
-            // transform vertex to canonical view volume
-            const transformedVertex = Matrix.multiply([
-              CG.mat4x4Perspective(
-                this.scene.view.prp,
-                this.scene.view.srp,
-                this.scene.view.vup,
-                this.scene.view.clip
-              ),
-              vertexToTransform,
-            ]);
-
-            // push to list of vertices which have been transformed
-            transformedVertices.push(transformedVertex);
-          }
-
-          // CLIPPING
-          let clippedLines = [];
-
-          for (let i = 0; i < model.edges.length; i++) {
-            // note that edge is an array of two or more indices
-            let edge = model.edges[i];
-
-            for (let j = 0; j < edge.length - 1; j++) {
-              // create line object with two endpoints
-              const line = {
-                pt0: transformedVertices[edge[j]],
-                pt1: transformedVertices[edge[j + 1]],
-              };
-
-              // clip line
-              const clippedLine = this.clipLinePerspective(
-                line,
-                this.scene.view.clip[4]
-              );
-
-              if (clippedLine !== null) {
-                // update edges with clipped line
-                clippedLines.push(clippedLine);
-              }
-            }
-          }
-
-          // 3. Mper
-          for (let i = 0; i < clippedLines.length; i++) {
-            clippedLines[i] = {
-              pt0: Matrix.multiply([CG.mat4x4MPer(), clippedLines[i].pt0]),
-              pt1: Matrix.multiply([CG.mat4x4MPer(), clippedLines[i].pt1]),
-            };
-          }
-
-          // 4. Viewport
-          for (let i = 0; i < clippedLines.length; i++) {
-            clippedLines[i] = {
-              pt0: Matrix.multiply([
-                CG.mat4x4Viewport(this.canvas.width, this.canvas.height),
-                clippedLines[i].pt0,
-              ]),
-              pt1: Matrix.multiply([
-                CG.mat4x4Viewport(this.canvas.width, this.canvas.height),
-                clippedLines[i].pt1,
-              ]),
-            };
-          }
-
-          // draw edges
-          for (let i = 0; i < clippedLines.length; i++) {
-            const pt0 = clippedLines[i].pt0;
-            const pt1 = clippedLines[i].pt1;
-
-            this.drawLine(
-              Math.floor(pt0.x / pt0.w),
-              Math.floor(pt0.y / pt0.w),
-              Math.floor(pt1.x / pt1.w),
-              Math.floor(pt1.y / pt1.w)
-            );
-          }
-
           break;
         case "cube":
           // handle cube
 
+          model.vertices = [];
+          model.vertices.push(
+            CG.Vector4(
+              model.center.x - model.width / 2,
+              model.center.y - model.height / 2,
+              model.center.z - model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x + model.width / 2,
+              model.center.y - model.height / 2,
+              model.center.z - model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x + model.width / 2,
+              model.center.y - model.height / 2,
+              model.center.z + model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x - model.width / 2,
+              model.center.y - model.height / 2,
+              model.center.z + model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x - model.width / 2,
+              model.center.y + model.height / 2,
+              model.center.z - model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x + model.width / 2,
+              model.center.y + model.height / 2,
+              model.center.z - model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x + model.width / 2,
+              model.center.y + model.height / 2,
+              model.center.z + model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x - model.width / 2,
+              model.center.y + model.height / 2,
+              model.center.z + model.depth / 2,
+              1
+            )
+          );
+
+          model.edges = [];
+          model.edges.push([0, 1, 2, 3, 0]);
+          model.edges.push([4, 5, 6, 7, 4]);
+          model.edges.push([0, 4]);
+          model.edges.push([1, 5]);
+          model.edges.push([2, 6]);
+          model.edges.push([3, 7]);
+
           break;
         case "cone":
-          // handle cone
+          // handle cone: center, radius, height, sides
+
+          model.vertices = [];
+
+          for (let i = 0; i < model.sides; i++) {
+            let theta = (i * 2 * Math.PI) / model.sides;
+            let x = model.center.x + model.radius * Math.cos(theta);
+            let z = model.center.z + model.radius * Math.sin(theta);
+
+            model.vertices.push(CG.Vector4(x, model.center.y, z, 1));
+          }
+
+          model.vertices.push(
+            CG.Vector4(
+              model.center.x,
+              model.center.y,
+              model.center.z + model.height,
+              1
+            )
+          );
+
+          model.edges = [];
+
+          for (let i = 0; i < model.sides; i++) {
+            // connect the circle vertices
+            let edge = [i, (i + 1) % model.sides];
+            model.edges.push(edge);
+
+            // connect the circle vertices to the top
+            edge = [i, model.sides];
+            model.edges.push(edge);
+          }
+
           break;
         case "cylinder":
-          // handle cylinder
+          // handle cylinder: center, radius, height, sides
+
+          //draw a circle at the top and bottom of the cylinder
+          model.vertices = [];
+
+          for (let i = 0; i < model.sides; i++) {
+            let theta = (i * 2 * Math.PI) / model.sides;
+            let x = model.center.x + model.radius * Math.cos(theta);
+            let z = model.center.z + model.radius * Math.sin(theta);
+
+            model.vertices.push(CG.Vector4(x, model.center.y, z, 1));
+            model.vertices.push(
+              CG.Vector4(x, model.center.y + model.height, z, 1)
+            );
+          }
+
+          model.edges = [];
+
+          for (let i = 0; i < model.sides; i++) {
+            //connect the circle vertices
+
+            // connect 0, 2, 4, 6, ..., 0
+            let edge = [i * 2, ((i + 1) * 2) % (model.sides * 2)];
+
+            model.edges.push(edge);
+
+            // connect 1, 3, 5, 7, ..., 1
+            edge = [i * 2 + 1, ((i + 1) * 2 + 1) % (model.sides * 2)];
+
+            model.edges.push(edge);
+
+            // connect 0, 1... 2, 3... etc.
+            edge = [i * 2, i * 2 + 1];
+            model.edges.push(edge);
+          }
+
           break;
         case "sphere":
-          // handle sphere
+          // handle sphere: center point, radius, number of slices, and number of stacks (2 pts)
+          model.vertices = [];
+          model.edges = [];
 
-          // for each stack (separated by horizontal lines)...
-          for (let j = 0; j < model.stacks; j++) {
-            // for each slice (separated by vertical lines)...
-            for (let k = 0; k < model.slices; k++) {
-              //
+          // for each stack (indicated by horizontal lines)...
+          for (let i = 0; i < model.stacks + 1; i++) {
+            // math.pi and not 2pi cause we are doing one pass down
+            let vertTheta = (i * Math.PI) / model.stacks;
+
+            let y = model.radius * Math.cos(vertTheta);
+            // draw a circle at this height, on xz plane...
+
+            for (let j = 0; j < model.slices; j++) {
+              let horizTheta = (j * (2 * Math.PI)) / model.slices;
+              let horizRadius = model.radius * Math.sin(vertTheta);
+
+              let x = horizRadius * Math.cos(horizTheta);
+              let z = horizRadius * Math.sin(horizTheta);
+
+              let vertex = CG.Vector4(
+                model.center.x + x,
+                model.center.y + y,
+                model.center.z + z,
+                1
+              );
+              model.vertices.push(vertex);
+            }
+          }
+
+          // for each stack...
+          for (let i = 0; i < model.stacks; i++) {
+            // for each slice...
+            for (let j = 0; j < model.slices; j++) {
+              // create edge from current vertex to next vertex
+              let edge = [i * model.slices + j, i * model.slices + j + 1];
+              model.edges.push(edge);
+            }
+            // connect last vertex in slice to first vertex in slice
+            let edge = [i * model.slices + model.slices - 1, i * model.slices];
+            model.edges.push(edge);
+          }
+
+          // for each slice...
+          for (let i = 0; i < model.slices; i++) {
+            // for each stack...
+            for (let j = 0; j < model.stacks; j++) {
+              // create edge from current vertex to next vertex
+              let edge = [j * model.slices + i, (j + 1) * model.slices + i];
+              model.edges.push(edge);
             }
           }
 
           break;
-        default:
-          console.log("No model type matched.");
+      }
+
+      // MAIN PERSPECTIVE PROJECTION
+      let transformedVertices = [];
+
+      // for each vertex...
+      for (const vertex of model.vertices) {
+        // create 4 component vector from 3-component array [x,y,z]
+        const vertexToTransform = CG.Vector4(
+          vertex.x,
+          vertex.y,
+          vertex.z,
+          vertex.w
+        );
+
+        // transform vertex to canonical view volume
+        const transformedVertex = Matrix.multiply([
+          CG.mat4x4Perspective(
+            this.scene.view.prp,
+            this.scene.view.srp,
+            this.scene.view.vup,
+            this.scene.view.clip
+          ),
+          vertexToTransform,
+        ]);
+
+        // push to list of vertices which have been transformed
+        transformedVertices.push(transformedVertex);
+      }
+
+      // CLIPPING
+      let clippedLines = [];
+
+      for (let i = 0; i < model.edges.length; i++) {
+        // note that edge is an array of two or more indices
+        let edge = model.edges[i];
+
+        for (let j = 0; j < edge.length - 1; j++) {
+          // create line object with two endpoints
+          const line = {
+            pt0: transformedVertices[edge[j]],
+            pt1: transformedVertices[edge[j + 1]],
+          };
+
+          // clip line
+          const clippedLine = this.clipLinePerspective(
+            line,
+            this.scene.view.clip[4]
+          );
+
+          if (clippedLine !== null) {
+            // update edges with clipped line
+            clippedLines.push(clippedLine);
+          }
+        }
+      }
+
+      // 3. Mper
+      for (let i = 0; i < clippedLines.length; i++) {
+        clippedLines[i] = {
+          pt0: Matrix.multiply([CG.mat4x4MPer(), clippedLines[i].pt0]),
+          pt1: Matrix.multiply([CG.mat4x4MPer(), clippedLines[i].pt1]),
+        };
+      }
+
+      // 4. Viewport
+      for (let i = 0; i < clippedLines.length; i++) {
+        clippedLines[i] = {
+          pt0: Matrix.multiply([
+            CG.mat4x4Viewport(this.canvas.width, this.canvas.height),
+            clippedLines[i].pt0,
+          ]),
+          pt1: Matrix.multiply([
+            CG.mat4x4Viewport(this.canvas.width, this.canvas.height),
+            clippedLines[i].pt1,
+          ]),
+        };
+      }
+
+      // draw edges
+      for (let i = 0; i < clippedLines.length; i++) {
+        const pt0 = clippedLines[i].pt0;
+        const pt1 = clippedLines[i].pt1;
+
+        this.drawLine(
+          Math.floor(pt0.x / pt0.w),
+          Math.floor(pt0.y / pt0.w),
+          Math.floor(pt1.x / pt1.w),
+          Math.floor(pt1.y / pt1.w)
+        );
       }
     }
 
