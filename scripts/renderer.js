@@ -64,15 +64,15 @@ class Renderer {
 
   // translate PRP and SRP across u-axis
   moveLeft() {
-    this.scene.view.srp.x += 1.0;
-    this.scene.view.prp.x += 1.0;
+    this.scene.view.srp.x -= 1.0;
+    this.scene.view.prp.x -= 1.0;
     this.draw();
   }
 
   // translate PRP and SRP across u-axis
   moveRight() {
-    this.scene.view.srp.x -= 1.0;
-    this.scene.view.prp.x -= 1.0;
+    this.scene.view.srp.x += 1.0;
+    this.scene.view.prp.x += 1.0;
     this.draw();
   }
 
