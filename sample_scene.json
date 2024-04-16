@@ -30,7 +30,7 @@
       "height": 5,
       "sides": 12,
       "animation": {
-        "axis": "y",
+        "axis": "z",
         "rps": 0.5
       }
     },

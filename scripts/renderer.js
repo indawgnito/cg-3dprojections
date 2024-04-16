@@ -18,14 +18,44 @@ class Renderer {
     this.canvas.height = canvas.height;
     this.ctx = this.canvas.getContext("2d");
     this.scene = this.processScene(scene);
-    this.enable_animation = false; // <-- disabled for easier debugging; enable for animation
+    this.enable_animation = true; // <-- disabled for easier debugging; enable for animation
     this.start_time = null;
     this.prev_time = null;
   }
 
   //
   updateTransforms(time, delta_time) {
-    // TODO: update any transformations needed for animation
+    for (let i = 0; i < this.scene.models.length; i++) {
+      let e = this.scene.models[i];
+      if (e.animation) {
+        let center = new Vector(4);
+        center.x = e.center.data[0][0];
+        center.y = e.center.data[1][0];
+        center.z = e.center.data[2][0];
+        let theta = (e.animation.rps * 2 * Math.PI) * delta_time / 1000;
+        let mat = new Matrix(4, 4);
+        switch (e.animation.axis) {
+          case "x":
+            CG.mat4x4RotateX(mat, theta);
+            break;
+          case "y":
+            CG.mat4x4RotateY(mat, theta);
+            break;
+          case "z":
+            CG.mat4x4RotateZ(mat, theta);
+            break;
+        }
+        for (let i = 0; i < e.vertices.length; i++) {
+          e.vertices[i].data[0][0] -= center.x;
+          e.vertices[i].data[1][0] -= center.y;
+          e.vertices[i].data[2][0] -= center.z;
+          e.vertices[i] = Matrix.multiply([mat, e.vertices[i]]);
+          e.vertices[i].data[0][0] += center.x;
+          e.vertices[i].data[1][0] += center.y;
+          e.vertices[i].data[2][0] += center.z;
+        }
+      }
+    }
   }
 
   //
@@ -96,205 +126,6 @@ class Renderer {
 
     for (let i = 0; i < this.scene.models.length; i++) {
       let model = this.scene.models[i];
-
-      switch (model.type) {
-        case "generic":
-          // handle generic model case
-
-          break;
-        case "cube":
-          // handle cube
-
-          model.vertices = [];
-          model.vertices.push(
-            CG.Vector4(
-              model.center.x - model.width / 2,
-              model.center.y - model.height / 2,
-              model.center.z - model.depth / 2,
-              1
-            ),
-            CG.Vector4(
-              model.center.x + model.width / 2,
-              model.center.y - model.height / 2,
-              model.center.z - model.depth / 2,
-              1
-            ),
-            CG.Vector4(
-              model.center.x + model.width / 2,
-              model.center.y - model.height / 2,
-              model.center.z + model.depth / 2,
-              1
-            ),
-            CG.Vector4(
-              model.center.x - model.width / 2,
-              model.center.y - model.height / 2,
-              model.center.z + model.depth / 2,
-              1
-            ),
-            CG.Vector4(
-              model.center.x - model.width / 2,
-              model.center.y + model.height / 2,
-              model.center.z - model.depth / 2,
-              1
-            ),
-            CG.Vector4(
-              model.center.x + model.width / 2,
-              model.center.y + model.height / 2,
-              model.center.z - model.depth / 2,
-              1
-            ),
-            CG.Vector4(
-              model.center.x + model.width / 2,
-              model.center.y + model.height / 2,
-              model.center.z + model.depth / 2,
-              1
-            ),
-            CG.Vector4(
-              model.center.x - model.width / 2,
-              model.center.y + model.height / 2,
-              model.center.z + model.depth / 2,
-              1
-            )
-          );
-
-          model.edges = [];
-          model.edges.push([0, 1, 2, 3, 0]);
-          model.edges.push([4, 5, 6, 7, 4]);
-          model.edges.push([0, 4]);
-          model.edges.push([1, 5]);
-          model.edges.push([2, 6]);
-          model.edges.push([3, 7]);
-
-          break;
-        case "cone":
-          // handle cone: center, radius, height, sides
-
-          model.vertices = [];
-
-          for (let i = 0; i < model.sides; i++) {
-            let theta = (i * 2 * Math.PI) / model.sides;
-            let x = model.center.x + model.radius * Math.cos(theta);
-            let z = model.center.z + model.radius * Math.sin(theta);
-
-            model.vertices.push(CG.Vector4(x, model.center.y, z, 1));
-          }
-
-          model.vertices.push(
-            CG.Vector4(
-              model.center.x,
-              model.center.y,
-              model.center.z + model.height,
-              1
-            )
-          );
-
-          model.edges = [];
-
-          for (let i = 0; i < model.sides; i++) {
-            // connect the circle vertices
-            let edge = [i, (i + 1) % model.sides];
-            model.edges.push(edge);
-
-            // connect the circle vertices to the top
-            edge = [i, model.sides];
-            model.edges.push(edge);
-          }
-
-          break;
-        case "cylinder":
-          // handle cylinder: center, radius, height, sides
-
-          //draw a circle at the top and bottom of the cylinder
-          model.vertices = [];
-
-          for (let i = 0; i < model.sides; i++) {
-            let theta = (i * 2 * Math.PI) / model.sides;
-            let x = model.center.x + model.radius * Math.cos(theta);
-            let z = model.center.z + model.radius * Math.sin(theta);
-
-            model.vertices.push(CG.Vector4(x, model.center.y, z, 1));
-            model.vertices.push(
-              CG.Vector4(x, model.center.y + model.height, z, 1)
-            );
-          }
-
-          model.edges = [];
-
-          for (let i = 0; i < model.sides; i++) {
-            //connect the circle vertices
-
-            // connect 0, 2, 4, 6, ..., 0
-            let edge = [i * 2, ((i + 1) * 2) % (model.sides * 2)];
-
-            model.edges.push(edge);
-
-            // connect 1, 3, 5, 7, ..., 1
-            edge = [i * 2 + 1, ((i + 1) * 2 + 1) % (model.sides * 2)];
-
-            model.edges.push(edge);
-
-            // connect 0, 1... 2, 3... etc.
-            edge = [i * 2, i * 2 + 1];
-            model.edges.push(edge);
-          }
-
-          break;
-        case "sphere":
-          // handle sphere: center point, radius, number of slices, and number of stacks (2 pts)
-          model.vertices = [];
-          model.edges = [];
-
-          // for each stack (indicated by horizontal lines)...
-          for (let i = 0; i < model.stacks + 1; i++) {
-            // math.pi and not 2pi cause we are doing one pass down
-            let vertTheta = (i * Math.PI) / model.stacks;
-
-            let y = model.radius * Math.cos(vertTheta);
-            // draw a circle at this height, on xz plane...
-
-            for (let j = 0; j < model.slices; j++) {
-              let horizTheta = (j * (2 * Math.PI)) / model.slices;
-              let horizRadius = model.radius * Math.sin(vertTheta);
-
-              let x = horizRadius * Math.cos(horizTheta);
-              let z = horizRadius * Math.sin(horizTheta);
-
-              let vertex = CG.Vector4(
-                model.center.x + x,
-                model.center.y + y,
-                model.center.z + z,
-                1
-              );
-              model.vertices.push(vertex);
-            }
-          }
-
-          // for each stack...
-          for (let i = 0; i < model.stacks; i++) {
-            // for each slice...
-            for (let j = 0; j < model.slices; j++) {
-              // create edge from current vertex to next vertex
-              let edge = [i * model.slices + j, i * model.slices + j + 1];
-              model.edges.push(edge);
-            }
-            // connect last vertex in slice to first vertex in slice
-            let edge = [i * model.slices + model.slices - 1, i * model.slices];
-            model.edges.push(edge);
-          }
-
-          // for each slice...
-          for (let i = 0; i < model.slices; i++) {
-            // for each stack...
-            for (let j = 0; j < model.stacks; j++) {
-              // create edge from current vertex to next vertex
-              let edge = [j * model.slices + i, (j + 1) * model.slices + i];
-              model.edges.push(edge);
-            }
-          }
-
-          break;
-      }
-
       // MAIN PERSPECTIVE PROJECTION
       let transformedVertices = [];
 
@@ -720,6 +551,208 @@ class Renderer {
 
       model.matrix = new Matrix(4, 4);
       processed.models.push(model);
+    }
+
+    for (let i = 0; i < processed.models.length; i++) {
+      let model = processed.models[i];
+
+      switch (model.type) {
+        case "generic":
+          // handle generic model case
+
+          break;
+        case "cube":
+          // handle cube
+
+          model.vertices = [];
+          model.vertices.push(
+            CG.Vector4(
+              model.center.x - model.width / 2,
+              model.center.y - model.height / 2,
+              model.center.z - model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x + model.width / 2,
+              model.center.y - model.height / 2,
+              model.center.z - model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x + model.width / 2,
+              model.center.y - model.height / 2,
+              model.center.z + model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x - model.width / 2,
+              model.center.y - model.height / 2,
+              model.center.z + model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x - model.width / 2,
+              model.center.y + model.height / 2,
+              model.center.z - model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x + model.width / 2,
+              model.center.y + model.height / 2,
+              model.center.z - model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x + model.width / 2,
+              model.center.y + model.height / 2,
+              model.center.z + model.depth / 2,
+              1
+            ),
+            CG.Vector4(
+              model.center.x - model.width / 2,
+              model.center.y + model.height / 2,
+              model.center.z + model.depth / 2,
+              1
+            )
+          );
+
+          model.edges = [];
+          model.edges.push([0, 1, 2, 3, 0]);
+          model.edges.push([4, 5, 6, 7, 4]);
+          model.edges.push([0, 4]);
+          model.edges.push([1, 5]);
+          model.edges.push([2, 6]);
+          model.edges.push([3, 7]);
+
+          break;
+        case "cone":
+          // handle cone: center, radius, height, sides
+
+          model.vertices = [];
+
+          for (let i = 0; i < model.sides; i++) {
+            let theta = (i * 2 * Math.PI) / model.sides;
+            let x = model.center.x + model.radius * Math.cos(theta);
+            let z = model.center.z + model.radius * Math.sin(theta);
+
+            model.vertices.push(CG.Vector4(x, model.center.y, z, 1));
+          }
+
+          model.vertices.push(
+            CG.Vector4(
+              model.center.x,
+              model.center.y,
+              model.center.z + model.height,
+              1
+            )
+          );
+
+          model.edges = [];
+
+          for (let i = 0; i < model.sides; i++) {
+            // connect the circle vertices
+            let edge = [i, (i + 1) % model.sides];
+            model.edges.push(edge);
+
+            // connect the circle vertices to the top
+            edge = [i, model.sides];
+            model.edges.push(edge);
+          }
+
+          break;
+        case "cylinder":
+          // handle cylinder: center, radius, height, sides
+
+          //draw a circle at the top and bottom of the cylinder
+          model.vertices = [];
+
+          for (let i = 0; i < model.sides; i++) {
+            let theta = (i * 2 * Math.PI) / model.sides;
+            let x = model.center.x + model.radius * Math.cos(theta);
+            let z = model.center.z + model.radius * Math.sin(theta);
+
+            model.vertices.push(CG.Vector4(x, model.center.y, z, 1));
+            model.vertices.push(
+              CG.Vector4(x, model.center.y + model.height, z, 1)
+            );
+          }
+
+          model.edges = [];
+
+          for (let i = 0; i < model.sides; i++) {
+            //connect the circle vertices
+
+            // connect 0, 2, 4, 6, ..., 0
+            let edge = [i * 2, ((i + 1) * 2) % (model.sides * 2)];
+
+            model.edges.push(edge);
+
+            // connect 1, 3, 5, 7, ..., 1
+            edge = [i * 2 + 1, ((i + 1) * 2 + 1) % (model.sides * 2)];
+
+            model.edges.push(edge);
+
+            // connect 0, 1... 2, 3... etc.
+            edge = [i * 2, i * 2 + 1];
+            model.edges.push(edge);
+          }
+
+          break;
+        case "sphere":
+          // handle sphere: center point, radius, number of slices, and number of stacks (2 pts)
+          model.vertices = [];
+          model.edges = [];
+
+          // for each stack (indicated by horizontal lines)...
+          for (let i = 0; i < model.stacks + 1; i++) {
+            // math.pi and not 2pi cause we are doing one pass down
+            let vertTheta = (i * Math.PI) / model.stacks;
+
+            let y = model.radius * Math.cos(vertTheta);
+            // draw a circle at this height, on xz plane...
+
+            for (let j = 0; j < model.slices; j++) {
+              let horizTheta = (j * (2 * Math.PI)) / model.slices;
+              let horizRadius = model.radius * Math.sin(vertTheta);
+
+              let x = horizRadius * Math.cos(horizTheta);
+              let z = horizRadius * Math.sin(horizTheta);
+
+              let vertex = CG.Vector4(
+                model.center.x + x,
+                model.center.y + y,
+                model.center.z + z,
+                1
+              );
+              model.vertices.push(vertex);
+            }
+          }
+
+          // for each stack...
+          for (let i = 0; i < model.stacks; i++) {
+            // for each slice...
+            for (let j = 0; j < model.slices; j++) {
+              // create edge from current vertex to next vertex
+              let edge = [i * model.slices + j, i * model.slices + j + 1];
+              model.edges.push(edge);
+            }
+            // connect last vertex in slice to first vertex in slice
+            let edge = [i * model.slices + model.slices - 1, i * model.slices];
+            model.edges.push(edge);
+          }
+
+          // for each slice...
+          for (let i = 0; i < model.slices; i++) {
+            // for each stack...
+            for (let j = 0; j < model.stacks; j++) {
+              // create edge from current vertex to next vertex
+              let edge = [j * model.slices + i, (j + 1) * model.slices + i];
+              model.edges.push(edge);
+            }
+          }
+
+          break;
+      }
     }
 
     return processed;
