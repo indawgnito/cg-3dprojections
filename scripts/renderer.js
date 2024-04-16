@@ -30,21 +30,37 @@ class Renderer {
 
   //
   rotateLeft() {
-    // let srp = this.scene.view.srp;
-    // let prp = this.scene.view.prp;
-    // let d = new Matrix(4, 1);
-    // d.values = [[srp.x - prp.x], [srp.y - prp.y], [srp.z - prp.z], [1]];
-    // let r = new Matrix(4, 4);
-    // CG.mat4x4RotateY(r, 1);
-    // d = Matrix.multiply([r, d]);
-    // this.scene.view.srp.x = d[0] + prp.x;
-    // this.scene.view.srp.y = d[1] + prp.y;
-    // this.scene.view.srp.z = d[2] + prp.z;
-    // this.draw();
+    let srp = this.scene.view.srp;
+    let prp = this.scene.view.prp;
+    let d = new Matrix(4, 1);
+    d.values = [[srp.x - prp.x], [srp.y - prp.y], [srp.z - prp.z], [1]];
+    let r = new Matrix(4, 4);
+    CG.mat4x4RotateY(r, 0.1);
+    d = Matrix.multiply([r, d]);
+
+    this.scene.view.srp.x = parseFloat(d.values[0]) + parseFloat(prp.x);
+    this.scene.view.srp.y = parseFloat(d.values[1]) + parseFloat(prp.y);
+    this.scene.view.srp.z = parseFloat(d.values[2]) + parseFloat(prp.z);
+
+    this.draw();
   }
 
   //
-  rotateRight() {}
+  rotateRight() {
+    let srp = this.scene.view.srp;
+    let prp = this.scene.view.prp;
+    let d = new Matrix(4, 1);
+    d.values = [[srp.x - prp.x], [srp.y - prp.y], [srp.z - prp.z], [1]];
+    let r = new Matrix(4, 4);
+    CG.mat4x4RotateY(r, -0.1);
+    d = Matrix.multiply([r, d]);
+
+    this.scene.view.srp.x = parseFloat(d.values[0]) + parseFloat(prp.x);
+    this.scene.view.srp.y = parseFloat(d.values[1]) + parseFloat(prp.y);
+    this.scene.view.srp.z = parseFloat(d.values[2]) + parseFloat(prp.z);
+
+    this.draw();
+  }
 
   // translate PRP and SRP across u-axis
   moveLeft() {
