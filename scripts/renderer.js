@@ -35,7 +35,7 @@ class Renderer {
     let d = new Matrix(4, 1);
     d.values = [[srp.x - prp.x], [srp.y - prp.y], [srp.z - prp.z], [1]];
     let r = new Matrix(4, 4);
-    CG.mat4x4RotateY(r, 0.1);
+    CG.mat4x4RotateY(r, -0.1);
     d = Matrix.multiply([r, d]);
 
     this.scene.view.srp.x = parseFloat(d.values[0]) + parseFloat(prp.x);
@@ -52,7 +52,7 @@ class Renderer {
     let d = new Matrix(4, 1);
     d.values = [[srp.x - prp.x], [srp.y - prp.y], [srp.z - prp.z], [1]];
     let r = new Matrix(4, 4);
-    CG.mat4x4RotateY(r, -0.1);
+    CG.mat4x4RotateY(r, 0.1);
     d = Matrix.multiply([r, d]);
 
     this.scene.view.srp.x = parseFloat(d.values[0]) + parseFloat(prp.x);
